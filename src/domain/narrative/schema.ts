@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 export const narrative_statuses = [
   "ACTIVE",
   "PAUSED",
@@ -32,11 +34,31 @@ export type NarrativeDependencyType =
 
 export type ISO8601String = string;
 
+export const narrative_event_dependency_schema = z.object({
+  parent_event: z.string().min(1),
+  type: z.enum(narrative_dependency_types),
+  weight: z.number().positive().optional(),
+});
+
 export interface NarrativeEventDependency {
   parent_event: string;
   type: NarrativeDependencyType;
   weight?: number; // Used only for MODIFIER_POSITIVE or MODIFIER_NEGATIVE
 }
+
+export const narrative_event_schema = z.object({
+  event_id: z.string().min(1),
+  label: z.string().min(1),
+  status: z.enum(narrative_event_statuses),
+  narrative_weight: z.number().int().min(1),
+  belief: z.number().min(0).max(1),
+  disbelief: z.number().min(0).max(1),
+  uncertainty: z.number().min(0).max(1),
+  base_rate: z.number().min(0).max(1),
+  probability: z.number().min(0).max(1),
+  conviction: z.number().min(0).max(1),
+  depends_on: z.array(narrative_event_dependency_schema),
+});
 
 export interface NarrativeEvent {
   event_id: string;
@@ -51,6 +73,21 @@ export interface NarrativeEvent {
   conviction: number; // Derived robustness, usually 1 - uncertainty
   depends_on: NarrativeEventDependency[];
 }
+
+export const narrative_json_schema = z.object({
+  narrative_id: z.string().min(1),
+  narrator_id: z.string().min(1),
+  title: z.string().min(1),
+  status: z.enum(narrative_statuses),
+  thesis_text: z.string().min(1),
+  failure_conditions: z.array(z.string().min(1)),
+  timestamps: z.object({
+    created_at: z.string().datetime(),
+    updated_at: z.string().datetime(),
+    expires_at: z.string().datetime().optional(),
+  }),
+  events: z.array(narrative_event_schema),
+});
 
 export interface NarrativeJson {
   narrative_id: string;

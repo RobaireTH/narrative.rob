@@ -1,0 +1,33 @@
+import { Router } from 'express';
+
+import type { AppServices } from '../../config/services';
+import { createWorkspacesController } from '../controllers/workspaces-controller';
+import { asyncHandler } from '../middlewares/async-handler';
+import { createRequireAuthMiddleware } from '../middlewares/auth';
+
+export interface CreateWorkspacesRouterParams {
+  services: AppServices;
+}
+
+export function createWorkspacesRouter(
+  params: CreateWorkspacesRouterParams,
+) {
+  const router = Router();
+  const controller = createWorkspacesController({
+    services: params.services,
+  });
+  const requireAuth = createRequireAuthMiddleware(params.services);
+
+  router.get(
+    '/:workspaceId',
+    requireAuth,
+    asyncHandler(controller.getWorkspace),
+  );
+  router.get(
+    '/:workspaceId/files/:fileName',
+    requireAuth,
+    asyncHandler(controller.getWorkspaceFile),
+  );
+
+  return router;
+}

@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "orchestrator_schedules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "next_run_at", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orchestrator_runs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "thread_id", "order": "ASCENDING" },
+        { "fieldPath": "started_at", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

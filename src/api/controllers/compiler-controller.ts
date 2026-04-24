@@ -58,6 +58,57 @@ export function createCompilerController(
       });
     },
 
+    async streamThread(req: Request, res: Response) {
+      const auth_user = getAuthenticatedUser(res);
+      const { threadId } = compiler_thread_params_schema.parse(req.params);
+      const thread = await params.services.compiler_service.getThread({
+        owner_id: auth_user.uid,
+        thread_id: threadId,
+      });
+
+      res.status(200);
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders?.();
+
+      const send = (event: string, data: unknown) => {
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+      };
+
+      send('thread_updated', { thread });
+
+      const event_bus = params.services.compiler_service.getEventBus();
+      const unsubscribe = event_bus?.subscribe(threadId, (event) => {
+        if (event.type === 'thread_updated') {
+          if (event.thread.owner_id !== auth_user.uid) {
+            return;
+          }
+          send('thread_updated', { thread: event.thread });
+        } else if (event.type === 'thread_error') {
+          send('thread_error', { error: event.error });
+        }
+      });
+
+      const heartbeat = setInterval(() => {
+        res.write(': heartbeat\n\n');
+      }, 30_000);
+
+      const cleanup = () => {
+        clearInterval(heartbeat);
+        unsubscribe?.();
+        if (!res.writableEnded) {
+          res.end();
+        }
+      };
+
+      req.on('close', cleanup);
+      req.on('aborted', cleanup);
+      res.on('close', cleanup);
+    },
+
     async listThreads(_req: Request, res: Response) {
       const auth_user = getAuthenticatedUser(res);
       const threads =

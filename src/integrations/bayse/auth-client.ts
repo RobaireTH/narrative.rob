@@ -262,6 +262,21 @@ export class BayseAuthClient {
     });
   }
 
+  async getWalletAssets(input: {
+    device_id: string;
+    token: string;
+  }): Promise<unknown> {
+    return fetchJson<unknown>({
+      headers: this.getSessionHeaders({
+        device_id: input.device_id,
+        token: input.token,
+      }),
+      method: 'GET',
+      timeout_ms: this.timeout_ms,
+      url: this.buildUrl('/v1/wallet/assets'),
+    });
+  }
+
   async rotateApiKey(input: {
     device_id: string;
     key_id: string;

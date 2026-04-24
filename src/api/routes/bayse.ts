@@ -42,6 +42,11 @@ export function createBayseRouter(
     requireAuth,
     asyncHandler(controller.getConnectionStatus),
   );
+  router.get(
+    '/accounts/me/balance',
+    requireAuth,
+    asyncHandler(controller.getBalance),
+  );
   router.post(
     '/accounts/me/api-keys',
     requireAuth,

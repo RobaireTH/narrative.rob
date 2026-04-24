@@ -15,6 +15,9 @@ import {
   CompilerService,
 } from '../application/compiler/service';
 import {
+  CompilerEventBus,
+} from '../application/compiler/event-bus';
+import {
   InMemoryCompilerThreadStore,
 } from '../application/compiler/thread-store';
 import {
@@ -294,8 +297,15 @@ export function createServices(params: CreateServicesParams): AppServices {
             anthropic_api_key: env.ANTHROPIC_API_KEY,
             artifact_store,
             bayse_base_url: env.BAYSE_BASE_URL,
-            bayse_public_key: process.env.BAYSE_PUBLIC_KEY?.trim(),
-            bayse_secret_key: process.env.BAYSE_SECRET_KEY?.trim(),
+            bayse_connection_store,
+            bayse_fallback_public_key:
+              env.NODE_ENV !== 'production'
+                ? process.env.BAYSE_PUBLIC_KEY?.trim()
+                : undefined,
+            bayse_fallback_secret_key:
+              env.NODE_ENV !== 'production'
+                ? process.env.BAYSE_SECRET_KEY?.trim()
+                : undefined,
             bayse_timeout_ms: env.BAYSE_TIMEOUT_MS,
             executor_model_id:
               process.env.ORCHESTRATOR_EXECUTOR_MODEL_ID ??
@@ -340,6 +350,7 @@ export function createServices(params: CreateServicesParams): AppServices {
     }),
     compiler_service: new CompilerService({
       anthropic_api_key: env.ANTHROPIC_API_KEY,
+      event_bus: new CompilerEventBus(),
       logger,
       model_id: env.COMPILER_MODEL_ID,
       narrative_store,

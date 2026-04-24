@@ -37,6 +37,11 @@ export function createOrchestratorRouter(
     requireAuth,
     asyncHandler(controller.threadStatus),
   );
+  router.get(
+    '/threads/:threadId/runs',
+    requireAuth,
+    asyncHandler(controller.listThreadRuns),
+  );
   router.post(
     '/threads/:threadId/pause',
     requireAuth,

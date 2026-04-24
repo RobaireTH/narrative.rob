@@ -29,10 +29,19 @@ export interface OrchestratorRunRecord {
   workspace_id: string;
 }
 
+export interface ListRunsByThreadInput {
+  before?: string;
+  limit?: number;
+  thread_id: string;
+}
+
 export interface OrchestratorRunStore {
   getLatestRunByThread(
     thread_id: string,
   ): Promise<OrchestratorRunRecord | null>;
+  listRunsByThread(
+    input: ListRunsByThreadInput,
+  ): Promise<OrchestratorRunRecord[]>;
   saveRun(record: OrchestratorRunRecord): Promise<OrchestratorRunRecord>;
 }
 
@@ -51,6 +60,20 @@ export class InMemoryOrchestratorRunStore
       )[0];
 
     return latest ? structuredClone(latest) : null;
+  }
+
+  async listRunsByThread(
+    input: ListRunsByThreadInput,
+  ): Promise<OrchestratorRunRecord[]> {
+    const limit = Math.max(1, Math.min(input.limit ?? 20, 100));
+    return Array.from(this.runs.values())
+      .filter((run) => run.thread_id === input.thread_id)
+      .filter((run) =>
+        input.before ? run.started_at < input.before : true,
+      )
+      .sort((left, right) => right.started_at.localeCompare(left.started_at))
+      .slice(0, limit)
+      .map((run) => structuredClone(run));
   }
 
   async saveRun(record: OrchestratorRunRecord): Promise<OrchestratorRunRecord> {

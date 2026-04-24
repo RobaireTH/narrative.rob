@@ -1,6 +1,7 @@
 import type { Firestore } from '@google-cloud/firestore';
 
 import type {
+  ListRunsByThreadInput,
   OrchestratorRunRecord,
   OrchestratorRunStore,
 } from '../../application/orchestrator/run-store';
@@ -39,6 +40,22 @@ export class FirestoreOrchestratorRunStore
     }
 
     return snapshot.docs[0].data() as OrchestratorRunRecord;
+  }
+
+  async listRunsByThread(
+    input: ListRunsByThreadInput,
+  ): Promise<OrchestratorRunRecord[]> {
+    const limit = Math.max(1, Math.min(input.limit ?? 20, 100));
+    let query = this.collection()
+      .where('thread_id', '==', input.thread_id)
+      .orderBy('started_at', 'desc');
+
+    if (input.before) {
+      query = query.where('started_at', '<', input.before);
+    }
+
+    const snapshot = await query.limit(limit).get();
+    return snapshot.docs.map((doc) => doc.data() as OrchestratorRunRecord);
   }
 
   async saveRun(record: OrchestratorRunRecord): Promise<OrchestratorRunRecord> {

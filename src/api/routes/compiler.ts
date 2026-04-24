@@ -39,6 +39,11 @@ export function createCompilerRouter(
     requireAuth,
     asyncHandler(controller.getThread),
   );
+  router.get(
+    '/threads/:threadId/stream',
+    requireAuth,
+    asyncHandler(controller.streamThread),
+  );
 
   return router;
 }

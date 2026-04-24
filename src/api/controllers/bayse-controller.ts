@@ -62,6 +62,19 @@ export function createBayseController(
       });
     },
 
+    async getBalance(_req: Request, res: Response) {
+      const auth_user = getAuthenticatedUser(res);
+      const balance =
+        await params.services.bayse_bootstrap_service.getWalletBalance(
+          auth_user.uid,
+        );
+
+      res.status(200).json({
+        data: balance,
+        request_id: res.locals.request_id,
+      });
+    },
+
     async getConnectionStatus(req: Request, res: Response) {
       const auth_user = getAuthenticatedUser(res);
       const connection =

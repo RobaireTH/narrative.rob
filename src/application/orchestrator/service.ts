@@ -77,6 +77,23 @@ export class OrchestratorService {
     return this.runtime_mode;
   }
 
+  async listRunsForThread(params: {
+    before?: string;
+    limit?: number;
+    owner_id: string;
+    thread_id: string;
+  }) {
+    await this.requireOwnedSchedule({
+      owner_id: params.owner_id,
+      thread_id: params.thread_id,
+    });
+    return this.run_store.listRunsByThread({
+      before: params.before,
+      limit: params.limit,
+      thread_id: params.thread_id,
+    });
+  }
+
   async listThreadsForOwner(owner_id: string) {
     const workspaces = await this.workspace_store.listByOwner(owner_id);
 

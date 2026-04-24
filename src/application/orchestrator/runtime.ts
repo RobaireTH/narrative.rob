@@ -19,6 +19,7 @@ import {
 } from '../../agents/executor';
 import { BayseExecutorHttpClient } from '../../agents/executor/bayse';
 import { NotFoundError, UpstreamUnavailableError } from '../common/errors';
+import type { BayseConnectionStore } from '../bayse/credentials-service';
 import type { WorkspaceArtifactStore } from '../workspaces/artifact-store';
 import type { WorkspaceStore } from '../workspaces/store';
 
@@ -44,9 +45,10 @@ export interface DeepAgentsOrchestratorRuntimeParams {
   anthropic_api_key: string;
   artifact_store: WorkspaceArtifactStore;
   bayse_base_url: string;
+  bayse_connection_store: BayseConnectionStore;
   bayse_currency?: string;
-  bayse_public_key?: string;
-  bayse_secret_key?: string;
+  bayse_fallback_public_key?: string;
+  bayse_fallback_secret_key?: string;
   bayse_timeout_ms: number;
   executor_model_id: string;
   logger: Logger;
@@ -91,9 +93,10 @@ function makeFileEntry(content: string, now: string) {
 export class DeepAgentsOrchestratorRuntime implements OrchestratorRuntime {
   private readonly artifact_store: WorkspaceArtifactStore;
   private readonly bayse_base_url: string;
+  private readonly bayse_connection_store: BayseConnectionStore;
   private readonly bayse_currency: string;
-  private readonly bayse_public_key?: string;
-  private readonly bayse_secret_key?: string;
+  private readonly bayse_fallback_public_key?: string;
+  private readonly bayse_fallback_secret_key?: string;
   private readonly bayse_timeout_ms: number;
   private readonly executor_model: ChatAnthropic;
   private readonly logger: Logger;
@@ -106,9 +109,10 @@ export class DeepAgentsOrchestratorRuntime implements OrchestratorRuntime {
   constructor(params: DeepAgentsOrchestratorRuntimeParams) {
     this.artifact_store = params.artifact_store;
     this.bayse_base_url = params.bayse_base_url;
+    this.bayse_connection_store = params.bayse_connection_store;
     this.bayse_currency = params.bayse_currency ?? 'USD';
-    this.bayse_public_key = params.bayse_public_key;
-    this.bayse_secret_key = params.bayse_secret_key;
+    this.bayse_fallback_public_key = params.bayse_fallback_public_key;
+    this.bayse_fallback_secret_key = params.bayse_fallback_secret_key;
     this.bayse_timeout_ms = params.bayse_timeout_ms;
     this.logger = params.logger;
     this.recursion_limit = params.recursion_limit ?? 50;
@@ -161,18 +165,39 @@ export class DeepAgentsOrchestratorRuntime implements OrchestratorRuntime {
       'logs.json': makeFileEntry(logs.content, now),
     };
 
+    const connection = await this.bayse_connection_store.getConnection(
+      workspace.owner_id,
+    );
+    const user_public_key =
+      connection?.latest_api_key?.public_key ??
+      this.bayse_fallback_public_key;
+    const user_secret_key =
+      connection?.latest_api_key?.secret_key ??
+      this.bayse_fallback_secret_key;
+
+    if (!user_public_key || !user_secret_key) {
+      throw new UpstreamUnavailableError(
+        'Orchestrator run cannot place trades: the workspace owner has not connected Bayse or has no API key. Connect the Bayse account and create an API key before running.',
+        {
+          owner_id: workspace.owner_id,
+          has_connection: Boolean(connection),
+          has_api_key: Boolean(connection?.latest_api_key),
+        },
+      );
+    }
+
     const pm_bayse_client = new BaysePortfolioManagerHttpClient({
       base_url: this.bayse_base_url,
       currency: this.bayse_currency,
-      public_key: this.bayse_public_key,
+      public_key: user_public_key,
       timeout_ms: this.bayse_timeout_ms,
     });
 
     const executor_bayse_client = new BayseExecutorHttpClient({
       base_url: this.bayse_base_url,
       currency: this.bayse_currency,
-      public_key: this.bayse_public_key,
-      secret_key: this.bayse_secret_key,
+      public_key: user_public_key,
+      secret_key: user_secret_key,
       timeout_ms: this.bayse_timeout_ms,
     });
 

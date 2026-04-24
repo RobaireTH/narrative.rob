@@ -12,11 +12,13 @@ import {
   type CompilerThreadRecord,
   type CompilerThreadStore,
 } from './thread-store';
+import type { CompilerEventBus } from './event-bus';
 
 export type CompilerRuntimeMode = 'disabled' | 'langgraph';
 
 export interface CompilerServiceParams {
   anthropic_api_key?: string;
+  event_bus?: CompilerEventBus;
   logger: Logger;
   model_id: string;
   narrative_store: NarrativeStore;
@@ -27,6 +29,7 @@ export interface CompilerServiceParams {
 }
 
 export class CompilerService {
+  private readonly event_bus?: CompilerEventBus;
   private readonly logger: Logger;
   private readonly model_id: string;
   private readonly narrative_store: NarrativeStore;
@@ -35,6 +38,7 @@ export class CompilerService {
   private readonly thread_store: CompilerThreadStore;
 
   constructor(params: CompilerServiceParams) {
+    this.event_bus = params.event_bus;
     this.logger = params.logger;
     this.model_id = params.model_id;
     this.narrative_store = params.narrative_store;
@@ -120,22 +124,24 @@ export class CompilerService {
         'compiler narrative persisted',
       );
 
-      return this.thread_store.updateThread({
+      const compiled_thread = await this.thread_store.updateThread({
         patch: {
           status: 'COMPILED',
           updated_at: new Date().toISOString(),
         },
         thread_id: thread.thread_id,
       });
+      return this.publishUpdate(compiled_thread);
     }
 
-    return this.thread_store.updateThread({
+    const updated_thread = await this.thread_store.updateThread({
       patch: {
         status: result.awaiting_confirmation ? 'AWAITING_APPROVAL' : 'READY',
         updated_at: new Date().toISOString(),
       },
       thread_id: thread.thread_id,
     });
+    return this.publishUpdate(updated_thread);
   }
 
   async createThread(input: {
@@ -143,10 +149,11 @@ export class CompilerService {
     owner_id: string;
     source_conversation_id?: string;
   }) {
-    return this.thread_store.createThread({
+    const thread = await this.thread_store.createThread({
       ...input,
       runtime_mode: this.runtime_mode,
     });
+    return this.publishUpdate(thread);
   }
 
   async getThread(params: {
@@ -196,13 +203,14 @@ export class CompilerService {
         thread_id: params.thread_id,
       });
 
-      return this.thread_store.updateThread({
+      const disabled_thread = await this.thread_store.updateThread({
         patch: {
           status: 'AWAITING_AI_RUNTIME',
           updated_at: updated.updated_at,
         },
         thread_id: updated.thread_id,
       });
+      return this.publishUpdate(disabled_thread);
     }
 
     const result = await this.runtime.postUserMessage({
@@ -226,22 +234,28 @@ export class CompilerService {
     }
 
     if (result.compiled_narrative) {
-      return this.thread_store.updateThread({
+      const compiled_thread = await this.thread_store.updateThread({
         patch: {
           status: 'COMPILED',
           updated_at: new Date().toISOString(),
         },
         thread_id: thread.thread_id,
       });
+      return this.publishUpdate(compiled_thread);
     }
 
-    return this.thread_store.updateThread({
+    const updated_thread = await this.thread_store.updateThread({
       patch: {
         status: result.awaiting_confirmation ? 'AWAITING_APPROVAL' : 'READY',
         updated_at: new Date().toISOString(),
       },
       thread_id: with_user_message.thread_id,
     });
+    return this.publishUpdate(updated_thread);
+  }
+
+  getEventBus(): CompilerEventBus | undefined {
+    return this.event_bus;
   }
 
   getRuntimeMode(): CompilerRuntimeMode {
@@ -254,6 +268,14 @@ export class CompilerService {
 
   getNarrativeStore(): NarrativeStore {
     return this.narrative_store;
+  }
+
+  private publishUpdate(thread: CompilerThreadRecord) {
+    this.event_bus?.publish(thread.thread_id, {
+      thread,
+      type: 'thread_updated',
+    });
+    return thread;
   }
 
   private async requireOwnedThread(params: {

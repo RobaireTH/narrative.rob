@@ -34,7 +34,12 @@ export interface BayseConnectionSummary {
 export interface BayseBootstrapServiceParams {
   auth_client: Pick<
     BayseAuthClient,
-    'createApiKey' | 'deleteApiKey' | 'listApiKeys' | 'login' | 'rotateApiKey'
+    | 'createApiKey'
+    | 'deleteApiKey'
+    | 'getWalletAssets'
+    | 'listApiKeys'
+    | 'login'
+    | 'rotateApiKey'
   >;
   connection_store: BayseConnectionStore;
   logger: Logger;
@@ -213,6 +218,24 @@ export class BayseBootstrapService {
     );
 
     return toSummary(connection);
+  }
+
+  async getWalletBalance(owner_id: string) {
+    const connection = requireConnection(
+      await this.connection_store.getConnection(owner_id),
+      owner_id,
+    );
+
+    const assets = await this.auth_client.getWalletAssets({
+      device_id: connection.session.device_id,
+      token: connection.session.token,
+    });
+
+    return {
+      assets,
+      fetched_at: new Date().toISOString(),
+      owner_id,
+    };
   }
 
   async listApiKeys(owner_id: string) {

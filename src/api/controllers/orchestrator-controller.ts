@@ -11,6 +11,11 @@ const thread_params_schema = z.object({
   threadId: z.string().min(1),
 });
 
+const list_runs_query_schema = z.object({
+  before: z.string().datetime().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+});
+
 const internal_task_run_body_schema = z.object({
   idempotency_key: z.string().min(1).optional(),
   thread_id: z.string().min(1),
@@ -101,6 +106,24 @@ export function createOrchestratorController(
 
       res.status(200).json({
         data: threads,
+        request_id: res.locals.request_id,
+      });
+    },
+
+    async listThreadRuns(req: Request, res: Response) {
+      const auth_user = getAuthenticatedUser(res);
+      const { threadId } = thread_params_schema.parse(req.params);
+      const query = list_runs_query_schema.parse(req.query);
+      const runs =
+        await params.services.orchestrator_service.listRunsForThread({
+          before: query.before,
+          limit: query.limit,
+          owner_id: auth_user.uid,
+          thread_id: threadId,
+        });
+
+      res.status(200).json({
+        data: runs,
         request_id: res.locals.request_id,
       });
     },

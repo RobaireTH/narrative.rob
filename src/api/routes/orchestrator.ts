@@ -22,6 +22,11 @@ export function createOrchestratorRouter(
   const requireAuth = createRequireAuthMiddleware(params.services);
   const requireInternal = createInternalAuthMiddleware({ env: params.env });
 
+  router.get(
+    '/threads',
+    requireAuth,
+    asyncHandler(controller.listThreads),
+  );
   router.post(
     '/threads/:threadId/run',
     requireAuth,

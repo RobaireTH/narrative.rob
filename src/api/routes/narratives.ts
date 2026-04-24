@@ -21,6 +21,7 @@ export function createNarrativesRouter(
   });
   const requireAuth = createRequireAuthMiddleware(params.services);
 
+  router.get('/', requireAuth, asyncHandler(controller.listNarratives));
   router.post('/', requireAuth, asyncHandler(controller.importNarrative));
   router.post(
     '/:narrativeId/workspace',

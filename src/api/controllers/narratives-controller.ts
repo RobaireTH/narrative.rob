@@ -76,6 +76,19 @@ export function createNarrativesController(
       });
     },
 
+    async listNarratives(_req: Request, res: Response) {
+      const auth_user = getAuthenticatedUser(res);
+      const narratives =
+        await params.services.narrative_service.listNarratives(
+          auth_user.uid,
+        );
+
+      res.status(200).json({
+        data: narratives,
+        request_id: res.locals.request_id,
+      });
+    },
+
     async importNarrative(req: Request, res: Response) {
       if (!params.env.ALLOW_NARRATIVE_IMPORT) {
         throw new NotFoundError('Direct narrative import is disabled.');

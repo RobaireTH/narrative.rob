@@ -54,6 +54,7 @@ export interface CompilerThreadStore {
   }): Promise<CompilerThreadRecord>;
   createThread(input: CreateCompilerThreadInput): Promise<CompilerThreadRecord>;
   getThread(thread_id: string): Promise<CompilerThreadRecord | null>;
+  listByOwner(owner_id: string): Promise<CompilerThreadRecord[]>;
   updateThread(params: {
     patch: Partial<Omit<CompilerThreadRecord, 'thread_id' | 'messages'>>;
     thread_id: string;
@@ -117,6 +118,13 @@ export class InMemoryCompilerThreadStore implements CompilerThreadStore {
   async getThread(thread_id: string): Promise<CompilerThreadRecord | null> {
     const thread = this.threads.get(thread_id);
     return thread ? cloneThread(thread) : null;
+  }
+
+  async listByOwner(owner_id: string): Promise<CompilerThreadRecord[]> {
+    return Array.from(this.threads.values())
+      .filter((thread) => thread.owner_id === owner_id)
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .map((thread) => cloneThread(thread));
   }
 
   async updateThread(params: {

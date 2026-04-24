@@ -77,6 +77,29 @@ export class OrchestratorService {
     return this.runtime_mode;
   }
 
+  async listThreadsForOwner(owner_id: string) {
+    const workspaces = await this.workspace_store.listByOwner(owner_id);
+
+    return Promise.all(
+      workspaces.map(async (workspace) => {
+        const [schedule, latest_run] = await Promise.all([
+          this.schedule_store.getSchedule(workspace.thread_id),
+          this.run_store.getLatestRunByThread(workspace.thread_id),
+        ]);
+        return {
+          latest_run,
+          schedule,
+          workspace: {
+            base_currency: workspace.base_currency,
+            narrative_id: workspace.narrative_id,
+            thread_id: workspace.thread_id,
+            workspace_id: workspace.workspace_id,
+          },
+        };
+      }),
+    );
+  }
+
   async getStatus(params: {
     owner_id: string;
     thread_id: string;

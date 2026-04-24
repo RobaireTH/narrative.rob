@@ -15,6 +15,7 @@ export interface NarrativeStore {
     workspace_id: string;
   }): Promise<NarrativeRecord>;
   getNarrative(narrative_id: string): Promise<NarrativeRecord | null>;
+  listByOwner(owner_id: string): Promise<NarrativeRecord[]>;
   saveNarrative(record: NarrativeRecord): Promise<NarrativeRecord>;
 }
 
@@ -47,6 +48,13 @@ export class InMemoryNarrativeStore implements NarrativeStore {
   ): Promise<NarrativeRecord | null> {
     const record = this.narratives.get(narrative_id);
     return record ? structuredClone(record) : null;
+  }
+
+  async listByOwner(owner_id: string): Promise<NarrativeRecord[]> {
+    return Array.from(this.narratives.values())
+      .filter((record) => record.owner_id === owner_id)
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .map((record) => structuredClone(record));
   }
 
   async saveNarrative(record: NarrativeRecord): Promise<NarrativeRecord> {

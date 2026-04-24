@@ -74,6 +74,9 @@ import {
   type OrchestratorRuntime,
 } from '../application/orchestrator/runtime';
 import {
+  PortfolioService,
+} from '../application/portfolio/service';
+import {
   WorkspaceBootstrapService,
 } from '../application/workspaces/service';
 import {
@@ -109,6 +112,7 @@ export interface AppServices {
   lock_store: LockStore;
   narrative_service: NarrativeService;
   orchestrator_service: OrchestratorService;
+  portfolio_service: PortfolioService;
   rate_limit_store: RateLimitStore;
   redis_client?: RedisClient;
   trading_policy_service: TradingPolicyService;
@@ -349,6 +353,11 @@ export function createServices(params: CreateServicesParams): AppServices {
       narrative_store,
     }),
     orchestrator_service,
+    portfolio_service: new PortfolioService({
+      artifact_store,
+      logger,
+      workspace_store,
+    }),
     rate_limit_store,
     redis_client,
     trading_policy_service,

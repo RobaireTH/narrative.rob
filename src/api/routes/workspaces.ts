@@ -18,6 +18,7 @@ export function createWorkspacesRouter(
   });
   const requireAuth = createRequireAuthMiddleware(params.services);
 
+  router.get('/', requireAuth, asyncHandler(controller.listWorkspaces));
   router.get(
     '/:workspaceId',
     requireAuth,
@@ -27,6 +28,11 @@ export function createWorkspacesRouter(
     '/:workspaceId/files/:fileName',
     requireAuth,
     asyncHandler(controller.getWorkspaceFile),
+  );
+  router.post(
+    '/:workspaceId/deposit',
+    requireAuth,
+    asyncHandler(controller.depositToWorkspace),
   );
 
   return router;

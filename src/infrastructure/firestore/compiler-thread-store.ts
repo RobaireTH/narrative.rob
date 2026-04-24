@@ -82,6 +82,15 @@ export class FirestoreCompilerThreadStore implements CompilerThreadStore {
     return snapshot.data() as CompilerThreadRecord;
   }
 
+  async listByOwner(owner_id: string): Promise<CompilerThreadRecord[]> {
+    const snapshot = await this.collection()
+      .where('owner_id', '==', owner_id)
+      .orderBy('updated_at', 'desc')
+      .get();
+
+    return snapshot.docs.map((doc) => doc.data() as CompilerThreadRecord);
+  }
+
   async updateThread(params: {
     patch: Partial<Omit<CompilerThreadRecord, 'thread_id' | 'messages'>>;
     thread_id: string;

@@ -28,6 +28,10 @@ export class NarrativeService {
     });
   }
 
+  async listNarratives(owner_id: string): Promise<NarrativeRecord[]> {
+    return this.narrative_store.listByOwner(owner_id);
+  }
+
   async importNarrative(input: {
     compiler_thread_id?: string;
     narrative: unknown;

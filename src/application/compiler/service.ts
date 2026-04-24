@@ -159,6 +159,10 @@ export class CompilerService {
     });
   }
 
+  async listThreads(owner_id: string): Promise<CompilerThreadRecord[]> {
+    return this.thread_store.listByOwner(owner_id);
+  }
+
   async postUserMessage(params: {
     content: string;
     owner_id: string;

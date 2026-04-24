@@ -92,6 +92,19 @@ export function createOrchestratorController(
       });
     },
 
+    async listThreads(_req: Request, res: Response) {
+      const auth_user = getAuthenticatedUser(res);
+      const threads =
+        await params.services.orchestrator_service.listThreadsForOwner(
+          auth_user.uid,
+        );
+
+      res.status(200).json({
+        data: threads,
+        request_id: res.locals.request_id,
+      });
+    },
+
     async threadStatus(req: Request, res: Response) {
       const auth_user = getAuthenticatedUser(res);
       const { threadId } = thread_params_schema.parse(req.params);

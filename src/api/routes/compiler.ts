@@ -18,6 +18,11 @@ export function createCompilerRouter(
   });
   const requireAuth = createRequireAuthMiddleware(params.services);
 
+  router.get(
+    '/threads',
+    requireAuth,
+    asyncHandler(controller.listThreads),
+  );
   router.post('/threads', requireAuth, asyncHandler(controller.createThread));
   router.post(
     '/threads/:threadId/messages',

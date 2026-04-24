@@ -58,6 +58,17 @@ export function createCompilerController(
       });
     },
 
+    async listThreads(_req: Request, res: Response) {
+      const auth_user = getAuthenticatedUser(res);
+      const threads =
+        await params.services.compiler_service.listThreads(auth_user.uid);
+
+      res.status(200).json({
+        data: threads,
+        request_id: res.locals.request_id,
+      });
+    },
+
     async getThread(req: Request, res: Response) {
       const auth_user = getAuthenticatedUser(res);
       const { threadId } = compiler_thread_params_schema.parse(req.params);

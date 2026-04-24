@@ -17,6 +17,7 @@ export interface WorkspaceRecord {
 export interface WorkspaceStore {
   getWorkspace(workspace_id: string): Promise<WorkspaceRecord | null>;
   getWorkspaceByThread(thread_id: string): Promise<WorkspaceRecord | null>;
+  listByOwner(owner_id: string): Promise<WorkspaceRecord[]>;
   saveWorkspace(record: WorkspaceRecord): Promise<WorkspaceRecord>;
 }
 
@@ -40,6 +41,13 @@ export class InMemoryWorkspaceStore implements WorkspaceStore {
     }
 
     return this.getWorkspace(workspace_id);
+  }
+
+  async listByOwner(owner_id: string): Promise<WorkspaceRecord[]> {
+    return Array.from(this.workspaces.values())
+      .filter((record) => record.owner_id === owner_id)
+      .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+      .map((record) => structuredClone(record));
   }
 
   async saveWorkspace(record: WorkspaceRecord): Promise<WorkspaceRecord> {

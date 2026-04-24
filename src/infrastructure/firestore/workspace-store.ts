@@ -50,6 +50,15 @@ export class FirestoreWorkspaceStore implements WorkspaceStore {
     return snapshot.docs[0].data() as WorkspaceRecord;
   }
 
+  async listByOwner(owner_id: string): Promise<WorkspaceRecord[]> {
+    const snapshot = await this.collection()
+      .where('owner_id', '==', owner_id)
+      .orderBy('updated_at', 'desc')
+      .get();
+
+    return snapshot.docs.map((doc) => doc.data() as WorkspaceRecord);
+  }
+
   async saveWorkspace(record: WorkspaceRecord): Promise<WorkspaceRecord> {
     await this.collection().doc(record.workspace_id).set(record);
     return record;

@@ -221,6 +221,10 @@ export class WorkspaceBootstrapService {
     };
   }
 
+  async listWorkspaces(owner_id: string) {
+    return this.workspace_store.listByOwner(owner_id);
+  }
+
   async getWorkspace(params: {
     owner_id: string;
     workspace_id: string;

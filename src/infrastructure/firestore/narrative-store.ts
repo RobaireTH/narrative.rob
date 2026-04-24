@@ -56,6 +56,15 @@ export class FirestoreNarrativeStore implements NarrativeStore {
     return snapshot.data() as NarrativeRecord;
   }
 
+  async listByOwner(owner_id: string): Promise<NarrativeRecord[]> {
+    const snapshot = await this.collection()
+      .where('owner_id', '==', owner_id)
+      .orderBy('updated_at', 'desc')
+      .get();
+
+    return snapshot.docs.map((doc) => doc.data() as NarrativeRecord);
+  }
+
   async saveNarrative(record: NarrativeRecord): Promise<NarrativeRecord> {
     await this.collection().doc(record.narrative.narrative_id).set(record);
     return record;

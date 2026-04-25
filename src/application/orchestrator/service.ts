@@ -2,6 +2,17 @@ import { randomUUID } from 'crypto';
 import type { Logger } from 'pino';
 
 import { create_empty_logs, type LogsJson } from '../../domain/logs/schema';
+import {
+  narrative_json_schema,
+  type NarrativeStatus,
+} from '../../domain/narrative/schema';
+
+const TERMINAL_NARRATIVE_STATUSES: ReadonlySet<NarrativeStatus> = new Set([
+  'ARCHIVED',
+  'COMPLETED',
+  'EXPIRED',
+  'FAILED',
+]);
 import type { WorkspaceArtifactStore } from '../workspaces/artifact-store';
 import type { WorkspaceStore } from '../workspaces/store';
 import type {
@@ -178,6 +189,14 @@ export class OrchestratorService {
     thread_id: string;
   }) {
     const schedule = await this.requireOwnedSchedule(params);
+
+    if (schedule.status === 'terminal') {
+      throw new ConflictError(
+        `Thread "${params.thread_id}" is in a terminal state and cannot be resumed.`,
+        { schedule_status: schedule.status },
+      );
+    }
+
     const now = new Date().toISOString();
 
     return this.schedule_store.saveSchedule({
@@ -200,6 +219,13 @@ export class OrchestratorService {
           thread_id: params.thread_id,
         })
       : await this.requireSchedule(params.thread_id);
+
+    if (schedule.status === 'terminal') {
+      throw new ConflictError(
+        `Thread "${params.thread_id}" is in a terminal state and cannot be run.`,
+        { schedule_status: schedule.status },
+      );
+    }
 
     const lock_key = `thread:${params.thread_id}:orchestrator-lock`;
     const lock = await this.lock_store.acquire({
@@ -281,16 +307,34 @@ export class OrchestratorService {
         };
         await this.run_store.saveRun(completed_run);
 
+        const narrative_status = await this.readNarrativeStatus(
+          schedule.workspace_id,
+        );
+        const is_terminal =
+          narrative_status !== undefined &&
+          TERMINAL_NARRATIVE_STATUSES.has(narrative_status);
+
         const updated_schedule = await this.schedule_store.saveSchedule({
           ...schedule,
           consecutive_failures: 0,
           last_error: undefined,
           last_run_at: completed_run.ended_at,
           last_success_at: completed_run.ended_at,
-          next_run_at: plusHours(new Date(), 4),
-          status: 'active',
+          next_run_at: is_terminal ? undefined : plusHours(new Date(), 4),
+          status: is_terminal ? 'terminal' : 'active',
           updated_at: ended_at,
         });
+
+        if (is_terminal) {
+          this.logger.info(
+            {
+              narrative_status,
+              thread_id: params.thread_id,
+              workspace_id: schedule.workspace_id,
+            },
+            'orchestrator schedule moved to terminal state',
+          );
+        }
 
         return {
           run: completed_run,
@@ -384,6 +428,27 @@ export class OrchestratorService {
       runtime_mode: this.runtime_mode,
       swept_at: now,
     };
+  }
+
+  private async readNarrativeStatus(
+    workspace_id: string,
+  ): Promise<NarrativeStatus | undefined> {
+    try {
+      const workspace = await this.workspace_store.getWorkspace(workspace_id);
+      if (!workspace) return undefined;
+
+      const file = await this.artifact_store.readTextObject(
+        workspace.current_narrative_object_key,
+      );
+      const narrative = narrative_json_schema.parse(JSON.parse(file.content));
+      return narrative.status;
+    } catch (error) {
+      this.logger.warn(
+        { err: error, workspace_id },
+        'failed to read narrative status after orchestrator run',
+      );
+      return undefined;
+    }
   }
 
   private async appendDisabledRuntimeLog(workspace_id: string) {

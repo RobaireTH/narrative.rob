@@ -34,6 +34,11 @@ export function createWorkspacesRouter(
     requireAuth,
     asyncHandler(controller.depositToWorkspace),
   );
+  router.post(
+    '/:workspaceId/withdraw',
+    requireAuth,
+    asyncHandler(controller.withdrawFromWorkspace),
+  );
 
   return router;
 }

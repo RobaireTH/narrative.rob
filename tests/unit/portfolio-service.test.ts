@@ -218,3 +218,57 @@ describe('PortfolioService.deposit', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
+
+describe('PortfolioService.withdraw', () => {
+  it('subtracts from unallocated_master_liquidity and logs', async () => {
+    const { artifact_store, portfolio_service, workspace } =
+      await primeWorkspace('owner-w-1', 200);
+
+    const result = await portfolio_service.withdraw({
+      amount: 50,
+      note: 'partial unwind',
+      owner_id: 'owner-w-1',
+      workspace_id: workspace.workspace_id,
+    });
+
+    expect(result.portfolio.unallocated_master_liquidity).toBe(150);
+
+    const logs_read = await artifact_store.readTextObject(
+      workspace.current_logs_object_key,
+    );
+    const logs = logs_json_schema.parse(JSON.parse(logs_read.content));
+    const entry = logs.entries.find((e) => e.event === 'PORTFOLIO_WITHDRAW');
+    expect(entry?.metadata?.amount).toBe(50);
+    expect(entry?.metadata?.new_balance).toBe(150);
+  });
+
+  it('rejects withdrawals that exceed unallocated balance', async () => {
+    const { portfolio_service, workspace } = await primeWorkspace(
+      'owner-w-2',
+      100,
+    );
+
+    await expect(
+      portfolio_service.withdraw({
+        amount: 250,
+        owner_id: 'owner-w-2',
+        workspace_id: workspace.workspace_id,
+      }),
+    ).rejects.toBeInstanceOf(ValidationAppError);
+  });
+
+  it('rejects negative or zero amounts', async () => {
+    const { portfolio_service, workspace } = await primeWorkspace(
+      'owner-w-3',
+      100,
+    );
+
+    await expect(
+      portfolio_service.withdraw({
+        amount: 0,
+        owner_id: 'owner-w-3',
+        workspace_id: workspace.workspace_id,
+      }),
+    ).rejects.toBeInstanceOf(ValidationAppError);
+  });
+});

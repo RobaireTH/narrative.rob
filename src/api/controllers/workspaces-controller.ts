@@ -20,6 +20,11 @@ const deposit_body_schema = z.object({
   note: z.string().max(500).optional(),
 });
 
+const withdraw_body_schema = z.object({
+  amount: z.number().positive().finite(),
+  note: z.string().max(500).optional(),
+});
+
 export interface CreateWorkspacesControllerParams {
   services: Pick<
     AppServices,
@@ -49,6 +54,23 @@ export function createWorkspacesController(
       const { workspaceId } = workspace_id_params_schema.parse(req.params);
       const body = deposit_body_schema.parse(req.body);
       const result = await params.services.portfolio_service.deposit({
+        amount: body.amount,
+        note: body.note,
+        owner_id: auth_user.uid,
+        workspace_id: workspaceId,
+      });
+
+      res.status(200).json({
+        data: result,
+        request_id: res.locals.request_id,
+      });
+    },
+
+    async withdrawFromWorkspace(req: Request, res: Response) {
+      const auth_user = getAuthenticatedUser(res);
+      const { workspaceId } = workspace_id_params_schema.parse(req.params);
+      const body = withdraw_body_schema.parse(req.body);
+      const result = await params.services.portfolio_service.withdraw({
         amount: body.amount,
         note: body.note,
         owner_id: auth_user.uid,

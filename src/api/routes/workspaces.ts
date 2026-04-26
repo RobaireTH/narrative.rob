@@ -29,6 +29,11 @@ export function createWorkspacesRouter(
     requireAuth,
     asyncHandler(controller.getWorkspaceFile),
   );
+  router.get(
+    '/:workspaceId/runs/:runId/files/:fileName',
+    requireAuth,
+    asyncHandler(controller.getWorkspaceRunFile),
+  );
   router.post(
     '/:workspaceId/deposit',
     requireAuth,

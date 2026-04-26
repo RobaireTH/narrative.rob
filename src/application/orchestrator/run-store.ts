@@ -21,6 +21,10 @@ export interface OrchestratorRunRecord {
   ended_at?: string;
   error?: string;
   run_id: string;
+  snapshot_execution_plan_object_key?: string;
+  snapshot_logs_object_key?: string;
+  snapshot_narrative_object_key?: string;
+  snapshot_portfolio_object_key?: string;
   started_at: string;
   status: OrchestratorRunStatus;
   summary?: string;
@@ -39,6 +43,7 @@ export interface OrchestratorRunStore {
   getLatestRunByThread(
     thread_id: string,
   ): Promise<OrchestratorRunRecord | null>;
+  getRunById(run_id: string): Promise<OrchestratorRunRecord | null>;
   listRunsByThread(
     input: ListRunsByThreadInput,
   ): Promise<OrchestratorRunRecord[]>;
@@ -60,6 +65,11 @@ export class InMemoryOrchestratorRunStore
       )[0];
 
     return latest ? structuredClone(latest) : null;
+  }
+
+  async getRunById(run_id: string): Promise<OrchestratorRunRecord | null> {
+    const record = this.runs.get(run_id);
+    return record ? structuredClone(record) : null;
   }
 
   async listRunsByThread(

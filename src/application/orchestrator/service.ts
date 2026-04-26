@@ -88,6 +88,14 @@ export class OrchestratorService {
     return this.runtime_mode;
   }
 
+  getRunStore(): OrchestratorRunStore {
+    return this.run_store;
+  }
+
+  getArtifactStore(): WorkspaceArtifactStore {
+    return this.artifact_store;
+  }
+
   async listRunsForThread(params: {
     before?: string;
     limit?: number;
@@ -299,9 +307,18 @@ export class OrchestratorService {
         });
 
         const ended_at = new Date().toISOString();
+        const snapshot_keys = await this.snapshotWorkspaceFiles({
+          run_id: run.run_id,
+          workspace_id: schedule.workspace_id,
+        });
         const completed_run: OrchestratorRunRecord = {
           ...run,
           ended_at,
+          snapshot_execution_plan_object_key:
+            snapshot_keys?.execution_plan,
+          snapshot_logs_object_key: snapshot_keys?.logs,
+          snapshot_narrative_object_key: snapshot_keys?.narrative,
+          snapshot_portfolio_object_key: snapshot_keys?.portfolio,
           status: 'succeeded',
           summary: runtime_result.summary,
         };
@@ -428,6 +445,75 @@ export class OrchestratorService {
       runtime_mode: this.runtime_mode,
       swept_at: now,
     };
+  }
+
+  private async snapshotWorkspaceFiles(params: {
+    run_id: string;
+    workspace_id: string;
+  }): Promise<
+    | {
+        execution_plan: string;
+        logs: string;
+        narrative: string;
+        portfolio: string;
+      }
+    | undefined
+  > {
+    try {
+      const workspace = await this.workspace_store.getWorkspace(
+        params.workspace_id,
+      );
+      if (!workspace) return undefined;
+
+      const targets = [
+        {
+          file_name: 'narrative.json',
+          source_key: workspace.current_narrative_object_key,
+        },
+        {
+          file_name: 'portfolio.json',
+          source_key: workspace.current_portfolio_object_key,
+        },
+        {
+          file_name: 'execution_plan.json',
+          source_key: workspace.current_execution_plan_object_key,
+        },
+        {
+          file_name: 'logs.json',
+          source_key: workspace.current_logs_object_key,
+        },
+      ];
+
+      const written: Record<string, string> = {};
+      for (const target of targets) {
+        const source = await this.artifact_store.readTextObject(
+          target.source_key,
+        );
+        const dest_key = target.source_key.replace(
+          /\/current\/[^/]+$/,
+          `/runs/${params.run_id}/${target.file_name}`,
+        );
+        await this.artifact_store.writeTextObject({
+          content: source.content,
+          content_type: source.content_type,
+          object_key: dest_key,
+        });
+        written[target.file_name] = dest_key;
+      }
+
+      return {
+        execution_plan: written['execution_plan.json'],
+        logs: written['logs.json'],
+        narrative: written['narrative.json'],
+        portfolio: written['portfolio.json'],
+      };
+    } catch (error) {
+      this.logger.warn(
+        { err: error, run_id: params.run_id, workspace_id: params.workspace_id },
+        'failed to write run snapshot files',
+      );
+      return undefined;
+    }
   }
 
   private async readNarrativeStatus(

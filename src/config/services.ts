@@ -378,6 +378,7 @@ export function createServices(params: CreateServicesParams): AppServices {
       logger,
       narrative_store,
       orchestrator_service,
+      run_store: orchestrator_run_store,
       workspace_store,
     }),
   };

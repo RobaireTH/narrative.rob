@@ -10,6 +10,7 @@ import {
   type PortfolioJson,
 } from '../../domain/portfolio/schema';
 import type { NarrativeStore } from '../narratives/store';
+import type { OrchestratorRunStore } from '../orchestrator/run-store';
 import type { WorkspaceArtifactStore } from './artifact-store';
 import type {
   WorkspaceRecord,
@@ -27,6 +28,7 @@ export interface WorkspaceBootstrapServiceParams {
     OrchestratorService,
     'initializeScheduleForWorkspace'
   >;
+  run_store: OrchestratorRunStore;
   workspace_store: WorkspaceStore;
 }
 
@@ -55,6 +57,7 @@ export class WorkspaceBootstrapService {
     OrchestratorService,
     'initializeScheduleForWorkspace'
   >;
+  private readonly run_store: OrchestratorRunStore;
   private readonly workspace_store: WorkspaceStore;
 
   constructor(params: WorkspaceBootstrapServiceParams) {
@@ -63,6 +66,7 @@ export class WorkspaceBootstrapService {
     this.logger = params.logger;
     this.narrative_store = params.narrative_store;
     this.orchestrator_service = params.orchestrator_service;
+    this.run_store = params.run_store;
     this.workspace_store = params.workspace_store;
   }
 
@@ -266,6 +270,42 @@ export class WorkspaceBootstrapService {
           : params.file_name === 'execution_plan'
             ? workspace.current_execution_plan_object_key
             : workspace.current_logs_object_key;
+
+    return this.artifact_store.readTextObject(object_key);
+  }
+
+  async getWorkspaceRunFile(params: {
+    file_name: 'execution_plan' | 'logs' | 'narrative' | 'portfolio';
+    owner_id: string;
+    run_id: string;
+    workspace_id: string;
+  }) {
+    const workspace = await this.getWorkspace({
+      owner_id: params.owner_id,
+      workspace_id: params.workspace_id,
+    });
+
+    const run = await this.run_store.getRunById(params.run_id);
+    if (!run || run.workspace_id !== workspace.workspace_id) {
+      throw new NotFoundError(
+        `Run "${params.run_id}" was not found for workspace "${params.workspace_id}".`,
+      );
+    }
+
+    const object_key =
+      params.file_name === 'narrative'
+        ? run.snapshot_narrative_object_key
+        : params.file_name === 'portfolio'
+          ? run.snapshot_portfolio_object_key
+          : params.file_name === 'execution_plan'
+            ? run.snapshot_execution_plan_object_key
+            : run.snapshot_logs_object_key;
+
+    if (!object_key) {
+      throw new NotFoundError(
+        `Run "${params.run_id}" has no snapshot for "${params.file_name}".`,
+      );
+    }
 
     return this.artifact_store.readTextObject(object_key);
   }

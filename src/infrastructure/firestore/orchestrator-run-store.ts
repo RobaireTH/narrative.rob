@@ -42,6 +42,14 @@ export class FirestoreOrchestratorRunStore
     return snapshot.docs[0].data() as OrchestratorRunRecord;
   }
 
+  async getRunById(run_id: string): Promise<OrchestratorRunRecord | null> {
+    const doc = await this.collection().doc(run_id).get();
+    if (!doc.exists) {
+      return null;
+    }
+    return doc.data() as OrchestratorRunRecord;
+  }
+
   async listRunsByThread(
     input: ListRunsByThreadInput,
   ): Promise<OrchestratorRunRecord[]> {

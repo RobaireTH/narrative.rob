@@ -181,3 +181,89 @@ describe('compiler and orchestrator list endpoints', () => {
     expect(response.body.data[0].schedule.thread_id).toBe('thread-a');
   });
 });
+
+describe('GET /api/workspaces/:id/runs/:run_id/files/:file', () => {
+  async function seededAppWithRunSnapshot() {
+    const harness = await seededApp();
+    const ws = harness.workspace_a;
+
+    const run_id = 'run-snap-1';
+    const snapshot_prefix = ws.current_narrative_object_key.replace(
+      /\/current\/[^/]+$/,
+      `/runs/${run_id}`,
+    );
+    const narrative_key = `${snapshot_prefix}/narrative.json`;
+    const portfolio_key = `${snapshot_prefix}/portfolio.json`;
+    const execution_plan_key = `${snapshot_prefix}/execution_plan.json`;
+    const logs_key = `${snapshot_prefix}/logs.json`;
+
+    const run_store = harness.services.orchestrator_service.getRunStore();
+    await run_store.saveRun({
+      ended_at: new Date().toISOString(),
+      run_id,
+      snapshot_execution_plan_object_key: execution_plan_key,
+      snapshot_logs_object_key: logs_key,
+      snapshot_narrative_object_key: narrative_key,
+      snapshot_portfolio_object_key: portfolio_key,
+      started_at: new Date().toISOString(),
+      status: 'succeeded',
+      thread_id: ws.thread_id,
+      trigger: 'manual',
+      workspace_id: ws.workspace_id,
+    });
+
+    const artifact_store =
+      harness.services.orchestrator_service.getArtifactStore();
+    await artifact_store.writeTextObject({
+      content: JSON.stringify({ snapshot_of: 'narrative', narrative_id: 'narr-a' }),
+      content_type: 'application/json',
+      object_key: narrative_key,
+    });
+    await artifact_store.writeTextObject({
+      content: JSON.stringify({ unallocated_master_liquidity: 42 }),
+      content_type: 'application/json',
+      object_key: portfolio_key,
+    });
+
+    return { ...harness, run_id };
+  }
+
+  it('returns the snapshot content for the owner', async () => {
+    const { app, run_id, workspace_a } = await seededAppWithRunSnapshot();
+
+    const response = await request(app)
+      .get(
+        `/api/workspaces/${workspace_a.workspace_id}/runs/${run_id}/files/narrative`,
+      )
+      .set(AUTH);
+
+    expect(response.status).toBe(200);
+    const parsed = JSON.parse(response.body.data.content);
+    expect(parsed.snapshot_of).toBe('narrative');
+    expect(parsed.narrative_id).toBe('narr-a');
+  });
+
+  it('returns 404 for an unknown run_id', async () => {
+    const { app, workspace_a } = await seededAppWithRunSnapshot();
+
+    const response = await request(app)
+      .get(
+        `/api/workspaces/${workspace_a.workspace_id}/runs/does-not-exist/files/narrative`,
+      )
+      .set(AUTH);
+
+    expect(response.status).toBe(404);
+  });
+
+  it('refuses a snapshot fetch for a different owner', async () => {
+    const { app, run_id, workspace_a } = await seededAppWithRunSnapshot();
+
+    const response = await request(app)
+      .get(
+        `/api/workspaces/${workspace_a.workspace_id}/runs/${run_id}/files/narrative`,
+      )
+      .set({ authorization: `Bearer ${OTHER_TOKEN}` });
+
+    expect(response.status).toBe(404);
+  });
+});

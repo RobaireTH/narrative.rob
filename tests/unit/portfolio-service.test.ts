@@ -78,6 +78,7 @@ async function primeWorkspace(owner_id: string, initial_liquidity = 100) {
     logger: silent_logger,
     narrative_store,
     orchestrator_service,
+    run_store,
     workspace_store,
   });
 

@@ -71,6 +71,7 @@ function makeServices(owner_id: string) {
     logger: silent_logger,
     narrative_store,
     orchestrator_service,
+    run_store,
     workspace_store,
   });
 

@@ -29,11 +29,6 @@ export function createCompilerRouter(
     requireAuth,
     asyncHandler(controller.postMessage),
   );
-  router.post(
-    '/threads/:threadId/approve',
-    requireAuth,
-    asyncHandler(controller.approveThread),
-  );
   router.get(
     '/threads/:threadId',
     requireAuth,

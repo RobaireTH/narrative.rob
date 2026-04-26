@@ -1,11 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Logger } from 'pino';
 
-import {
-  NotImplementedAppError,
-  NotFoundError,
-  ValidationAppError,
-} from '../common/errors';
+import { NotFoundError } from '../common/errors';
 import type { NarrativeStore } from '../narratives/store';
 import { LangGraphCompilerRuntime } from './langgraph-runtime';
 import {
@@ -66,82 +62,6 @@ export class CompilerService {
         redis_url: params.redis_url,
       });
     }
-  }
-
-  async approveThread(params: {
-    owner_id: string;
-    thread_id: string;
-  }) {
-    const thread = await this.requireOwnedThread({
-      owner_id: params.owner_id,
-      thread_id: params.thread_id,
-    });
-
-    if (!this.runtime || this.runtime_mode !== 'langgraph') {
-      throw new NotImplementedAppError(
-        'Compiler approval is blocked because the AI runtime adapter is not wired yet.',
-        {
-          model_id: this.model_id,
-          runtime_mode: thread.runtime_mode,
-          thread_id: params.thread_id,
-        },
-      );
-    }
-
-    if (thread.status !== 'AWAITING_APPROVAL') {
-      throw new ValidationAppError(
-        `Compiler thread is in status "${thread.status}" and cannot be approved.`,
-        { thread_id: params.thread_id },
-      );
-    }
-
-    const result = await this.runtime.approveThread({
-      narrator_id: thread.narrator_id,
-      owner_id: thread.owner_id,
-      source_conversation_id: thread.source_conversation_id,
-      thread_id: thread.thread_id,
-    });
-
-    const now = new Date().toISOString();
-    for (const content of result.assistant_messages) {
-      await this.thread_store.appendMessage({
-        message: {
-          content,
-          created_at: now,
-          message_id: randomUUID(),
-          role: 'assistant',
-        },
-        thread_id: thread.thread_id,
-      });
-    }
-
-    if (result.compiled_narrative) {
-      this.logger.info(
-        {
-          narrative_id: result.compiled_narrative.narrative.narrative_id,
-          thread_id: thread.thread_id,
-        },
-        'compiler narrative persisted',
-      );
-
-      const compiled_thread = await this.thread_store.updateThread({
-        patch: {
-          status: 'COMPILED',
-          updated_at: new Date().toISOString(),
-        },
-        thread_id: thread.thread_id,
-      });
-      return this.publishUpdate(compiled_thread);
-    }
-
-    const updated_thread = await this.thread_store.updateThread({
-      patch: {
-        status: result.awaiting_confirmation ? 'AWAITING_APPROVAL' : 'READY',
-        updated_at: new Date().toISOString(),
-      },
-      thread_id: thread.thread_id,
-    });
-    return this.publishUpdate(updated_thread);
   }
 
   async createThread(input: {

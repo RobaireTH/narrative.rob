@@ -27,21 +27,6 @@ export function createCompilerController(
   params: CreateCompilerControllerParams,
 ) {
   return {
-    async approveThread(req: Request, res: Response) {
-      const auth_user = getAuthenticatedUser(res);
-      const { threadId } = compiler_thread_params_schema.parse(req.params);
-      const thread =
-        await params.services.compiler_service.approveThread({
-          owner_id: auth_user.uid,
-          thread_id: threadId,
-        });
-
-      res.status(200).json({
-        data: thread,
-        request_id: res.locals.request_id,
-      });
-    },
-
     async createThread(req: Request, res: Response) {
       const auth_user = getAuthenticatedUser(res);
       const input = create_compiler_thread_schema.parse(req.body);

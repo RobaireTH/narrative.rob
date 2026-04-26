@@ -4,10 +4,7 @@ import type { BaseMessage } from '@langchain/core/messages';
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import type { Logger } from 'pino';
 
-import {
-  create_compiler_agent_graph,
-  create_compiler_resume_command,
-} from '../../agents/compiler/graph';
+import { create_compiler_agent_graph } from '../../agents/compiler/graph';
 import type {
   CompileNarrativeContext,
   CompilerNarrativeRecord,
@@ -28,13 +25,6 @@ export interface LangGraphCompilerRuntimeParams {
 
 export interface CompilerStepInput {
   content: string;
-  narrator_id: string;
-  owner_id: string;
-  source_conversation_id: string;
-  thread_id: string;
-}
-
-export interface CompilerApprovalInput {
   narrator_id: string;
   owner_id: string;
   source_conversation_id: string;
@@ -101,13 +91,6 @@ export class LangGraphCompilerRuntime {
     });
   }
 
-  async approveThread(input: CompilerApprovalInput): Promise<CompilerStepResult> {
-    return this.runStep({
-      input,
-      payload: create_compiler_resume_command('yes'),
-    });
-  }
-
   private async getCheckpointer(): Promise<BaseCheckpointSaver> {
     if (!this.checkpointer_promise) {
       this.checkpointer_promise = create_compiler_redis_checkpointer({
@@ -119,8 +102,8 @@ export class LangGraphCompilerRuntime {
   }
 
   private async runStep(args: {
-    input: CompilerStepInput | CompilerApprovalInput;
-    payload: HumanMessage | ReturnType<typeof create_compiler_resume_command>;
+    input: CompilerStepInput;
+    payload: HumanMessage;
   }): Promise<CompilerStepResult> {
     const context: CompileNarrativeContext = {
       narrator_id: args.input.narrator_id,
@@ -143,17 +126,12 @@ export class LangGraphCompilerRuntime {
 
     let final_state;
     try {
-      if (args.payload instanceof HumanMessage) {
-        final_state = await graph.invoke(
-          {
-            messages: [args.payload],
-          },
-          config,
-        );
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        final_state = await graph.invoke(args.payload as any, config);
-      }
+      final_state = await graph.invoke(
+        {
+          messages: [args.payload],
+        },
+        config,
+      );
     } catch (error) {
       this.logger.error(
         {
